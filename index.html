@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fútbol Analytics Pro - Sistema Táctico FIFA World Cup 2022</title>
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- PapaParse para leer CSV -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+
+  <!-- numeric.js para operaciones matriciales (PCA via SVD) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/numeric/1.2.6/numeric.min.js"></script>
+
+  <!-- Font Awesome para iconos -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <!-- Pelotas flotantes decorativas -->
+  <div class="floating-ball"></div>
+  <div class="floating-ball"></div>
+  <div class="floating-ball"></div>
+
+    <header>
+    <img src="messi.jpg" alt="Messi" class="messi-corner">
+
+    <div class="header-content">
+      <div class="logo-container">
+        <div class="logo">
+          <i class="fas fa-futbol"></i>
+        </div>
+        <div class="title-container">
+          <h1>Fútbol Analytics Pro</h1>
+          <p class="subtitle">Sistema Táctico Inteligente para Análisis de Rivales - Copa Mundial FIFA 2022</p>
+        </div>
+      </div>
+
+      <div class="header-info">
+        <div class="info-item">
+          <i class="fas fa-database"></i>
+          <span>Base de datos: 72 partidos analizados</span>
+        </div>
+        <div class="info-item">
+          <i class="fas fa-chart-line"></i>
+          <span>3 perfiles tácticos identificados</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+
+  <main>
+    <!-- Panel de configuración -->
+    <section class="config-panel">
+      <div class="panel-header">
+        <h2><i class="fas fa-cog"></i> Configuración del Análisis</h2>
+      </div>
+      <div class="config-content">
+        <div class="config-section">
+          <h3><i class="fas fa-users"></i> Selección de Equipos</h3>
+          <div class="team-selection">
+            <div class="team-selector">
+              <label for="own-team">Equipo Propio:</label>
+              <select id="own-team" class="team-select">
+                <option value="argentina">Argentina</option>
+                <option value="brasil">Brasil</option>
+                <option value="francia">Francia</option>
+                <option value="españa">España</option>
+                <option value="alemania">Alemania</option>
+                <option value="custom">Personalizado</option>
+              </select>
+            </div>
+            <div class="vs-circle">
+              <span>VS</span>
+            </div>
+            <div class="team-selector">
+              <label for="rival-team">Equipo Rival:</label>
+              <select id="rival-team" class="team-select">
+                <option value="">Seleccionar rival...</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-section">
+          <h3><i class="fas fa-sliders-h"></i> Parámetros del Modelo</h3>
+          <div class="model-params">
+            <div class="param-group">
+              <label for="k-input">Número de Clusters:</label>
+              <input id="k-input" type="range" min="2" max="6" value="3" />
+              <span id="k-value">3</span>
+            </div>
+            <div class="param-group">
+              <label for="auto-scale">
+                <input id="auto-scale" type="checkbox" checked />
+                Estandarizar Variables
+              </label>
+            </div>
+            <button id="process-btn" class="analyze-btn">
+              <i class="fas fa-play-circle"></i> Ejecutar Análisis Táctico
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TABS Principales -->
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="rival-analysis">
+        <i class="fas fa-search"></i> Análisis de Rivales
+      </button>
+      <button class="tab-btn" data-tab="tactical-comparison">
+        <i class="fas fa-chart-radar"></i> Comparativa Táctica
+      </button>
+      <button class="tab-btn" data-tab="recommendations">
+        <i class="fas fa-lightbulb"></i> Recomendaciones
+      </button>
+      <button class="tab-btn" data-tab="database">
+        <i class="fas fa-table"></i> Base de Datos
+      </button>
+    </nav>
+
+    <!-- Pestaña 1: Análisis de Rivales -->
+    <section id="rival-analysis" class="tab active">
+      <div class="tab-header">
+        <h2><i class="fas fa-search"></i> Análisis Detallado del Rival</h2>
+        <p class="tab-description">Identificación del perfil táctico y métricas clave del equipo rival</p>
+      </div>
+
+      <div class="rival-profile">
+        <div class="profile-header">
+          <div class="rival-info">
+            <h3 id="rival-name">Seleccione un equipo rival</h3>
+            <div class="cluster-badge" id="rival-cluster-badge">
+              <span class="badge-text">Cluster: --</span>
+            </div>
+          </div>
+          <div class="profile-stats">
+            <div class="stat-item">
+              <span class="stat-label">Intensidad</span>
+              <div class="stat-bar">
+                <div class="stat-fill" id="intensity-bar"></div>
+              </div>
+              <span class="stat-value" id="intensity-value">--</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Disciplina</span>
+              <div class="stat-bar">
+                <div class="stat-fill" id="discipline-bar"></div>
+              </div>
+              <span class="stat-value" id="discipline-value">--</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Precisión</span>
+              <div class="stat-bar">
+                <div class="stat-fill" id="precision-bar"></div>
+              </div>
+              <span class="stat-value" id="precision-value">--</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="profile-content">
+          <div class="cluster-description">
+            <h4>Caracterización del Perfil Táctico</h4>
+            <div class="description-box" id="cluster-description">
+              <p>Seleccione un equipo rival para ver su análisis detallado.</p>
+            </div>
+          </div>
+
+          <div class="key-metrics">
+            <h4>Métricas Clave del Rival</h4>
+            <div class="metrics-grid">
+              <div class="metric-card">
+                <div class="metric-icon">
+                  <i class="fas fa-futbol"></i>
+                </div>
+                <div class="metric-content">
+                  <span class="metric-label">Goles por Partido</span>
+                  <span class="metric-value" id="goals-metric">--</span>
+                </div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-icon">
+                  <i class="fas fa-bullseye"></i>
+                </div>
+                <div class="metric-content">
+                  <span class="metric-label">Tiros al Arco</span>
+                  <span class="metric-value" id="shots-metric">--</span>
+                </div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-icon">
+                  <i class="fas fa-percentage"></i>
+                </div>
+                <div class="metric-content">
+                  <span class="metric-label">Posesión Media</span>
+                  <span class="metric-value" id="possession-metric">--</span>
+                </div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-icon">
+                  <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div class="metric-content">
+                  <span class="metric-label">Faltas por Partido</span>
+                  <span class="metric-value" id="fouls-metric">--</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pestaña 2: Comparativa Táctica -->
+    <section id="tactical-comparison" class="tab">
+      <div class="tab-header">
+        <h2><i class="fas fa-chart-radar"></i> Comparativa Táctica Equipo vs Rival</h2>
+        <p class="tab-description">Análisis comparativo de las 15 variables estandarizadas para identificar fortalezas y debilidades</p>
+      </div>
+
+      <div class="comparison-container">
+        <div class="radar-container">
+          <div class="radar-header">
+            <h3>Gráfico Radar de Variables Tácticas</h3>
+            <div class="radar-legend">
+              <div class="legend-item">
+                <span class="legend-color own-team"></span>
+                <span>Equipo Propio</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-color rival-team"></span>
+                <span>Equipo Rival</span>
+              </div>
+            </div>
+          </div>
+          <div class="chart-row">
+            <canvas id="radarChart"></canvas>
+          </div>
+        </div>
+
+        <div class="insights-panel">
+          <h3><i class="fas fa-binoculars"></i> Puntos Críticos Identificados</h3>
+          <div class="insights-list" id="tactical-insights">
+            <div class="insight-item">
+              <div class="insight-icon">
+                <i class="fas fa-exclamation-circle"></i>
+              </div>
+              <div class="insight-content">
+                <p>Seleccione un rival para realizar la comparativa táctica</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="strengths-weaknesses">
+            <div class="sw-box strengths">
+              <h4><i class="fas fa-thumbs-up"></i> Fortalezas Principales</h4>
+              <ul id="strengths-list">
+                <li>Completa el análisis para ver fortalezas</li>
+              </ul>
+            </div>
+            <div class="sw-box weaknesses">
+              <h4><i class="fas fa-thumbs-down"></i> Debilidades a Explotar</h4>
+              <ul id="weaknesses-list">
+                <li>Completa el análisis para ver debilidades</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pestaña 3: Recomendaciones -->
+    <section id="recommendations" class="tab">
+      <div class="tab-header">
+        <h2><i class="fas fa-lightbulb"></i> Recomendaciones Tácticas Específicas</h2>
+        <p class="tab-description">Sugerencias accionables basadas en el cruce de perfiles tácticos</p>
+      </div>
+
+      <div class="recommendations-container">
+        <div class="matchup-analysis">
+          <div class="matchup-header">
+            <h3>Análisis del Enfrentamiento</h3>
+            <div class="matchup-badges">
+              <div class="matchup-badge own-badge">
+                <span>Equipo Propio</span>
+                <div class="badge-cluster" id="own-cluster-badge">--</div>
+              </div>
+              <div class="matchup-vs">
+                <i class="fas fa-versus"></i>
+              </div>
+              <div class="matchup-badge rival-badge">
+                <span>Equipo Rival</span>
+                <div class="badge-cluster" id="rival-matchup-badge">--</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="matchup-description" id="matchup-description">
+            <p>Complete el análisis de rivales para obtener recomendaciones personalizadas.</p>
+          </div>
+        </div>
+
+        <div class="recommendations-grid">
+          <div class="recommendation-card priority-high">
+            <div class="rec-header">
+              <div class="rec-icon">
+                <i class="fas fa-flag"></i>
+              </div>
+              <h4>Estrategia Defensiva</h4>
+            </div>
+            <div class="rec-content" id="defensive-strategy">
+              <p>Seleccione un rival para ver recomendaciones defensivas específicas.</p>
+            </div>
+          </div>
+
+          <div class="recommendation-card priority-medium">
+            <div class="rec-header">
+              <div class="rec-icon">
+                <i class="fas fa-bullseye"></i>
+              </div>
+              <h4>Estrategia Ofensiva</h4>
+            </div>
+            <div class="rec-content" id="offensive-strategy">
+              <p>Seleccione un rival para ver recomendaciones ofensivas específicas.</p>
+            </div>
+          </div>
+
+          <div class="recommendation-card priority-high">
+            <div class="rec-header">
+              <div class="rec-icon">
+                <i class="fas fa-users"></i>
+              </div>
+              <h4>Preparación del Equipo</h4>
+            </div>
+            <div class="rec-content" id="team-preparation">
+              <p>Seleccione un rival para ver recomendaciones de preparación.</p>
+            </div>
+          </div>
+
+          <div class="recommendation-card priority-low">
+            <div class="rec-header">
+              <div class="rec-icon">
+                <i class="fas fa-random"></i>
+              </div>
+              <h4>Sustituciones y Rotaciones</h4>
+            </div>
+            <div class="rec-content" id="substitutions">
+              <p>Seleccione un rival para ver recomendaciones de rotaciones.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="alert-box warning">
+          <div class="alert-icon">
+            <i class="fas fa-exclamation-triangle"></i>
+          </div>
+          <div class="alert-content">
+            <h4>Atención: Puntos Críticos del Enfrentamiento</h4>
+            <p id="critical-points">Complete el análisis para identificar puntos críticos específicos.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pestaña 4: Base de Datos -->
+    <section id="database" class="tab">
+      <div class="tab-header">
+        <h2><i class="fas fa-table"></i> Base de Datos de Partidos Analizados</h2>
+        <p class="tab-description">Registros completos de los 72 partidos del Mundial 2022 con clasificación táctica</p>
+      </div>
+
+      <div class="database-controls">
+        <div class="filter-group">
+          <label for="filter-cluster">Filtrar por Cluster:</label>
+          <select id="filter-cluster">
+            <option value="all">Todos los Clusters</option>
+            <option value="1">Cluster 1 - Cerrados y Tácticos</option>
+            <option value="2">Cluster 2 - Intensos y Equilibrados</option>
+            <option value="3">Cluster 3 - Dominados o con Goleadas</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="filter-team">Filtrar por Equipo:</label>
+          <input type="text" id="filter-team" placeholder="Nombre del equipo...">
+        </div>
+        <button id="apply-filters" class="filter-btn">
+          <i class="fas fa-filter"></i> Aplicar Filtros
+        </button>
+      </div>
+
+      <div class="table-container">
+        <div id="database-table-container"></div>
+      </div>
+
+      <div class="database-stats">
+        <div class="stat-card">
+          <h4>Partidos Totales</h4>
+          <p id="total-matches">72</p>
+        </div>
+        <div class="stat-card">
+          <h4>Equipos Analizados</h4>
+          <p id="total-teams">32</p>
+        </div>
+        <div class="stat-card">
+          <h4>Variables Consideradas</h4>
+          <p id="total-variables">15</p>
+        </div>
+        <div class="stat-card">
+          <h4>Precisión del Modelo</h4>
+          <p>85%</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-content">
+      <div class="footer-section">
+        <h4><i class="fas fa-futbol"></i> Fútbol Analytics Pro</h4>
+        <p>Sistema táctico de análisis de rivales desarrollado para cuerpos técnicos profesionales.</p>
+        <p class="copyright">© 2023 Sistema desarrollado para el análisis de la Copa Mundial FIFA 2022</p>
+      </div>
+      <div class="footer-section">
+        <h4><i class="fas fa-users"></i> Equipo de Desarrollo</h4>
+        <p><strong>Análisis de Datos:</strong> Aneyba Mercado Renata</p>
+        <p><strong>Desarrollo del Sistema:</strong> Lara Loza Joaquín</p>
+      </div>
+      <div class="footer-section">
+        <h4><i class="fas fa-info-circle"></i> Metodología</h4>
+        <p>Clustering Jerárquico Aglomerativo con validación mediante Índice de Silueta. Análisis basado en 15 variables tácticas estandarizadas.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- main.js -->
+  <script src="main.js"></script>
+</body>
+</html>
